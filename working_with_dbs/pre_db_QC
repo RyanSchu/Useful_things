@@ -1,0 +1,33 @@
+#!/bin/bash
+
+prefix=$1
+
+#echo "gene_id gene_name       gene_type       alpha   n_snps_in_window        n_snps_in_model lambda_min_mse  test_R2_avg     test_R2_sd      cv_R2_avg       cv_R2_sd        in_sample_R2    nested_cv_fisher_pval   rho_avg rho_se  rho_zscore      rho_avg_squared zscore_pval     cv_rho_avg      cv_rho_se       cv_rho_avg_squared      cv_zscore_est   cv_zscore_pval  cv_pval_est" > ${prefix}_WG_model_summaries.txt
+#echo "gene_id rsid    varID   ref     alt     beta" > ${prefix}_WG_weights.txt
+if [ -e ${prefix}_WG_model_summaries.txt ]
+then
+	rm ${prefix}_WG_model_summaries.txt
+fi
+if [ -e ${prefix}_WG_weights.txt ]
+then
+	rm ${prefix}_WG_weights.txt
+fi
+
+
+for i in ${prefix}*model_summaries.txt
+do
+	tail -n +2 ${i} >> ${prefix}_WG_model_summaries.txt
+done
+
+for i in ${prefix}*weights.txt
+do
+	tail -n +2 ${i} >> ${prefix}_WG_weights.txt
+done
+
+tail -n +2 ${prefix}_WG_weights.txt | awk '{split($3,a,"_");print "chr" a[1] "\t" a[2] "\t" a[2] + 1 "\t" $2 "\t" $3}' > ${prefix}_pre_lift_hg19.txt
+/usr/local/bin/liftOver ${prefix}_pre_lift_hg19.txt ~/Data/liftover/hg19ToHg38.over.chain.gz ${prefix}_lifted_hg38.txt ${prefix}_unmapped.txt
+grep -v "alt" ${prefix}_lifted_hg38.txt | grep -v "random" > ${prefix}_lifted_filtered_hg38.txt 
+awk '{gsub("chr","",$1);split($5,a,"_");print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\thg38:" $1 ":" $2 "\t" $1 "_" $2 "_" a[3] "_" a[4] "_b38"}' ${prefix}_lifted_filtered_hg38.txt > ${prefix}_lifted_filtered_hg38_cpos.txt
+Rscript ~/scripts/cpos_lift_weights.R --weights ${prefix}_WG_weights.txt --dict ${prefix}_lifted_filtered_hg38_cpos.txt --out ${prefix}_WG_weights_hg38_cpos
+##make db file here
+

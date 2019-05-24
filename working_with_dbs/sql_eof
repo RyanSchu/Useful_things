@@ -1,0 +1,64 @@
+#!/bin/bash
+#PBS -N update_CAU_db
+#PBS -S /bin/bash
+#PBS -o /home/ryan/logs/${PBS_JOBNAME}.o${PBS_JOBID}.log
+#PBS -e /home/ryan/logs/${PBS_JOBNAME}.e${PBS_JOBID}.err
+#PBS -l walltime=150:00:00
+
+#tail -n +2 /home/ryan/mets_analysis/mesa_models/paul_mesa/CAU_hg38_cpos_weights.txt > /home/ryan/mets_analysis/mesa_models/paul_mesa/CAU_hg38_cpos_weights_no_header.txt
+
+/usr/local/bin/anaconda2/bin/sqlite3 CAU_nonplink_pruned/CAU_unfiltered_rsid_hg19.db <<"EOF"
+.separator "\t"
+CREATE TABLE `extra` (
+  `gene` TEXT,
+  `gene_name` TEXT,
+  `gene_type` TEXT,
+  `alpha` REAL,
+  `n_snps_in_window` INTEGER,
+  `n_snps_in_model` INTEGER,
+  `lambda_min_mse` REAL,
+  `test_R2_avg` REAL,
+  `test_R2_sd` REAL,
+  `cv_R2_avg` REAL,
+  `cv_R2_sd` REAL,
+  `in_sample_R2` REAL,
+  `nested_cv_fisher_pval` REAL,
+  `rho_avg` REAL,
+  `rho_se` REAL,
+  `rho_zscore` REAL,
+  `rho_avg_squared` REAL,
+  `zscore_pval` REAL,
+  `cv_rho_avg` REAL,
+  `cv_rho_se` REAL,
+  `cv_rho_avg_squared` REAL,
+  `cv_zscore_est` REAL,
+  `cv_zscore_pval` REAL,
+  `cv_pval_est` REAL
+);
+
+.import /home/ryan/enet_scripts/prune_testing/CAU_nonplink_pruned/MESA.CAU._WG_model_summaries.txt extra
+
+CREATE INDEX gene_model_summary ON extra (gene);
+
+CREATE TABLE `sample_info` (
+ `n_samples` REAL,
+ `population` TEXT,
+ `tissue` TEXT
+);
+
+.import /home/ryan/enet_scripts/prune_testing/CAU_nonplink_pruned/sample_info sample_info
+
+CREATE TABLE `weights` (
+  `gene` TEXT,
+  `rsid` TEXT,
+  `varID` TEXT,
+  `ref_allele` TEXT,
+  `eff_allele` TEXT,
+  `weight` REAL
+);
+
+.import /home/ryan/enet_scripts/prune_testing/CAU_nonplink_pruned/MESA.CAU._WG_weights.txt weights
+CREATE INDEX weights_rsid ON weights (rsid);
+CREATE INDEX weights_gene ON weights (gene);
+CREATE INDEX weights_rsid_gene ON weights (rsid, gene);
+EOF
